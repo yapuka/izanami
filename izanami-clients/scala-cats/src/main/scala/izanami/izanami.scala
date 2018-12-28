@@ -1,23 +1,28 @@
 package izanami
-import cats.Monad
 import izanami.data._
 import cats._
 import cats.implicits._
+import izanami.Types.ThrowableMonadError
+import play.api.libs.json.{JsObject, Json}
 
-abstract class FeatureClient[F[_]: Monad] {
+object Types {
+  type ThrowableMonadError[F[_]] =  MonadError[F, Throwable]
+}
 
-  def features(pattern: String, context: String =  ""): F[Features]
+abstract class FeatureClient[F[_]: ThrowableMonadError] {
 
-  def isActive(key: String, context: String =  ""): F[Boolean]
+  def features(pattern: String, context: JsObject =  Json.obj()): F[Features]
 
-  def featureOrElse[T](key: String, context: String =  "")(ok: => T)(ko: => T): F[T] = {
+  def isActive(key: String, context: JsObject =  Json.obj()): F[Boolean]
+
+  def featureOrElse[T](key: String, context: JsObject =  Json.obj())(ok: => T)(ko: => T): F[T] = {
     isActive(key, context).map {
       case true => ok
       case false => ko
     }
   }
 
-  def featureOrElseF[T](key: String, context: String =  "")(ok: => F[T])(ko: => F[T]): F[T] = {
+  def featureOrElseF[T](key: String, context: JsObject =  Json.obj())(ok: => F[T])(ko: => F[T]): F[T] = {
     for {
       active <- isActive(key, context)
       res     <- if (active) ok else ko

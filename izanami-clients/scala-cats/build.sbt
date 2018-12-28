@@ -21,6 +21,8 @@ lazy val `scala-cats` = (project in file("."))
       "org.http4s"             %% "http4s-play-json"    % Http4sVersion,
       "org.http4s"             %% "http4s-dsl"          % Http4sVersion,
       "com.typesafe.play"      %% "play-json"           % "2.6.9",
+      "com.chuusai"            %% "shapeless"           % "2.3.3",
+      "com.adelegue"           %% "playjson-extended"   % "0.0.4",
       "junit"                  % "junit"                % "4.12" % Test,
       "com.novocode"           % "junit-interface"      % "0.11" % Test,
       "org.scalatest"          %% "scalatest"           % "3.0.1" % Test,
