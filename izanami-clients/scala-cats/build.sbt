@@ -7,6 +7,7 @@ val disabledPlugins = if (sys.env.get("TRAVIS_TAG").filterNot(_.isEmpty).isDefin
   Seq(RevolverPlugin, BintrayPlugin)
 }
 val Http4sVersion = "0.20.0-M4"
+//val Http4sVersion = "0.19.0"
 
 lazy val `scala-cats` = (project in file("."))
   .disablePlugins(disabledPlugins: _*)
