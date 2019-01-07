@@ -2,11 +2,11 @@ package izanami.interpreter
 import cats._
 import cats.effect.{Effect, _}
 import cats.implicits._
-import izanami.FeatureClient
+import izanami.{FeatureClient, IzanamiClient}
 import izanami.data.{Feature, Features}
-import org.http4s.Uri
+import org.http4s.{Request, Uri}
 import org.http4s.client.Client
-import play.api.libs.json.{JsPath, JsonValidationError}
+import play.api.libs.json._
 
 import scala.concurrent.ExecutionContext.global
 
@@ -25,7 +25,7 @@ private object PagingResult {
       (__ \ "metadata" \ "pageSize").read[Int] and
       (__ \ "metadata" \ "nbPages").read[Int] and
       (__ \ "metadata" \ "count").read[Int] and
-      (__ \ "results").read[Seq[Feature]].orElse(Reads.pure(Seq.empty))
+      (__ \ "results").read[Seq[JsValue]].orElse(Reads.pure(Seq.empty))
     )(PagingResult.apply _)
 }
 
@@ -34,15 +34,17 @@ private case class PagingResult(
                                  pageSize: Int,
                                  nbPages: Int,
                                  count: Int,
-                                 results: Seq[Feature]
-                               )
+                                 results: Seq[JsValue])
 
-class HttpInterpreter[F[_]: Effect](config: ClientConfig, client: Client[F]) extends FeatureClient[F] {
+object HttpInterpreter {
+  def apply[F[_]: Effect](config: ClientConfig, client: Client[F]): IzanamiClient[F] = new HttpInterpreter(config, client)
+}
+
+class HttpInterpreter[F[_]: Effect](config: ClientConfig, client: Client[F]) extends IzanamiClient[F] {
 
   implicit val cs: ContextShift[IO] = IO.contextShift(global)
   implicit val timer: Timer[IO] = IO.timer(global)
 
-  import Feature._
   import play.api.libs.json.{JsObject, JsValue}
   import org.http4s._
   import org.http4s.headers._
@@ -50,36 +52,35 @@ class HttpInterpreter[F[_]: Effect](config: ClientConfig, client: Client[F]) ext
 
   override def features(pattern: String,
                           context: JsObject): F[Features] = {
-    fetchFeatures(pattern, context, 1) map {Features.apply}
+    val requestForPage = (page: Int) =>  Request[F](
+      uri = config.baseUrl / "api" / "features" +? ("pattern", pattern) +? ("active", "true") +? ("page", page) +? ("pageSize", 5),
+      headers = Headers(Header("Izanami-Client-Id", "xxxx"), Header("Izanami-Client-Secret", "xxxx"), Accept(MediaType.application.json))
+    )
+
+    fetchDatas[Feature](requestForPage, 1) map {Features.apply}
   }
 
   override def isActive(key:  String, context:  JsObject): F[Boolean] = ???
 
-
-  def fetchFeatures(pattern: String,
-                        context: JsObject, page: Int): F[Seq[Feature]] = {
-    import org.http4s.play._
-    val M = MonadError[F, Throwable]
-    val request = Request[F](
-      uri = config.baseUrl / "api" / "features" +? ("pattern", pattern) +? ("active", "true") +? ("page", page) +? ("pageSize", 5),
-      headers = Headers(Header("Izanami-Client-Id", "xxxx"), Header("Izanami-Client-Secret", "xxxx"), Accept(MediaType.application.json))
-    )
-    println(s"Request : $request")
-    for {
-      response        <- client.expect[JsValue](request)
-      _               = println(s"Response : $response")
-      featuresOrError = response.validate[PagingResult].asEither
-      pagingResult    <- M.fromEither(featuresOrError.leftMap(err => ParseError(err)))
-      features        = pagingResult.results
-      allFeatures     <- if (lastPage(pagingResult)) features.pure[F] else fetchFeatures(pattern, context, page + 1).map(_ ++  features)
-    } yield {
-      allFeatures
-    }
-  }
-
-  private def lastPage(pagingResult: PagingResult): Boolean = {
+  private def isLastPage(pagingResult: PagingResult): Boolean = {
     pagingResult.results.isEmpty || pagingResult.page === pagingResult.nbPages
   }
 
+  private def fetchDatas[T](requestForPage: Int => Request[F], page: Int)(implicit reads: Reads[Seq[T]]): F[Seq[T]] = {
+    import org.http4s.play._
+    val M = MonadError[F, Throwable]
+    val request = requestForPage(page)
+    println(s"Request : $request")
+    for {
+      response        <- client.expect[JsValue](request)
+      _               =  println(s"Response : $response")
+      featuresOrError =  response.validate[PagingResult].asEither
+      pagingResult    <- M.fromEither(featuresOrError.leftMap(err => ParseError(err)))
+      resultOrErrors  =  reads.reads(JsArray(pagingResult.results)).asEither.leftMap(err => ParseError(err))
+      datas           <- M.fromEither(resultOrErrors)
+      allDatas        <- if (isLastPage(pagingResult)) datas.pure[F]
+                         else fetchDatas(requestForPage, page + 1).map(_ ++  datas)
+    } yield allDatas
+  }
 
 }

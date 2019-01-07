@@ -8,8 +8,10 @@ import play.api.libs.json.Json
 import org.http4s._
 import org.http4s.client._
 import cats._
+import cats.data.Kleisli
 import cats.effect.{Effect, _}
 import cats.implicits._
+import cats.syntax._
 import izanami.data.Feature
 
 import scala.concurrent.ExecutionContext._
@@ -26,9 +28,8 @@ class FeatureSpec extends IzanamiSpec {
       val config = ClientConfig(Uri.uri("http://localhost:9000"))
 
       val f = for {
-        features <- BlazeClientBuilder[IO](global).resource.use { client =>
-          val featureClient = new HttpInterpreter[IO](config, client)
-          featureClient.fetchFeatures("*", Json.obj(), 1)
+        features <- IzanamiBuilder[IO](config).resource.use { client =>
+          client.features("*", Json.obj())
         }
       } yield {
         features
