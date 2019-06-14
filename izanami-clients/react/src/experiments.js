@@ -7,9 +7,10 @@ import deepEqual from 'deep-equal';
 import deepmerge from 'deepmerge';
 import get from 'lodash/get';
 import * as Api from './api';
+import globalThis from '@ungap/global-this'
 
-if (!window.Symbol) {
-    window.Symbol = Symbol;
+if (!globalThis.Symbol) {
+    globalThis.Symbol = Symbol;
 }
 
 export class Variant extends Component {

@@ -9,10 +9,10 @@ import isFunction from "lodash/isFunction";
 import * as Api from './api';
 import Debug from './debug';
 import { arrayPathToString, getCleanedArrayPath, getIsActive } from './util';
+import globalThis from '@ungap/global-this'
 
-
-if (!window.Symbol) {
-    window.Symbol = Symbol;
+if (!globalThis.Symbol) {
+    globalThis.Symbol = Symbol;
 }
 
 export class Enabled extends Component {
