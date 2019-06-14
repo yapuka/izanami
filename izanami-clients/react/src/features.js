@@ -83,8 +83,8 @@ export class Feature extends Component {
     const isActive = getIsActive(features, arrayPath);
     const path = arrayPathToString(arrayPath)
     const childrenArray = Array.isArray(children) ? children : [children];
-    const enabledChildren = childrenArray.filter(c => c && c.type === Enabled);
-    const disabledChildren = childrenArray.filter(c => c && c.type === Disabled);
+    const enabledChildren = childrenArray.filter(c => c && c.type.name === 'Enabled');
+    const disabledChildren = childrenArray.filter(c => c && c.type.name === 'Disabled');
     const debug = !!this.state.debug || this.props.debug;
     if (this.props.render && isFunction(this.props.render)) {
       if (debug) {
@@ -107,7 +107,7 @@ export class Feature extends Component {
         );
       }
       return enabledChildren[0];
-    } else if (!isActive && (enabledChildren.length > 0 || disabledChildren.length > 0)) {
+    } else if (!isActive && disabledChildren.length > 0) {
       if (debug) console.log(`[Features] feature '${path}' is disabled, rendering first <Disabled /> component`);
       if (debug) {
         return (
