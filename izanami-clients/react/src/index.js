@@ -9,6 +9,7 @@ import isString from 'lodash/isString';
 export * as Api from './api';
 export * from './features';
 export * from './experiments';
+export * from './util';
 
 export class IzanamiProvider extends Component {
 
